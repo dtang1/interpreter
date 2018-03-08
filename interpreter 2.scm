@@ -17,18 +17,18 @@
 ;      ((equal? (operator input) '%) (remainder (m_value_int (operand1 input)state) (m_value_int (operand2 input)state)))
 ;      (else (error 'badop "Undefined operator")))))
 
-(define m_value_int
-  (lambda (input state)
+(define m_value_int-cps
+  (lambda (input state return)
     (cond
-      ((number? input) input)
-      ((and (not(list? input)) (equal? (M_lookup input state) 'undefined)) (error 'undefined "Using before assigning"))
-      ((not(list? input)) (M_lookup input state))
-      ((equal? (operator input) '+) (+ (m_value_int (operand1 input) state) (m_value_int (operand2 input)state)))
-      ((and (equal? (operator input) '-) (null? (urnarycheck input))) (* -1 (m_value_int (operand1 input) state)))
-      ((equal? (operator input) '-) (- (m_value_int (operand1 input)state) (m_value_int (operand2 input)state)))
-      ((equal? (operator input) '*) (* (m_value_int (operand1 input)state) (m_value_int (operand2 input)state)))
-      ((equal? (operator input) '/) (quotient (m_value_int (operand1 input)state) (m_value_int (operand2 input)state)))
-      ((equal? (operator input) '%) (remainder (m_value_int (operand1 input)state) (m_value_int (operand2 input)state)))
+      ((number? input) (return input))
+      ((M_lookup-cps input state (lambda (v) (return (and (eq? v 'undefined) (not(list? input)))))) (error 'undefined "Using before assigning"))
+      ((not(list? input)) (M_lookup-cps input state (lambda (v) v)))
+      ((equal? (operator input) '+) (m_value_int-cps (operand1 input) state (lambda (v1) (m_value_int-cps (operand2 input) state (lambda (v2) (return (+ v1 v2)))))))
+      ((and (equal? (operator input) '-) (null? (urnarycheck input))) (m_value_int-cps (operand1 input) state (lambda (v) (return (* -1 v)))))
+      ((equal? (operator input) '-) (m_value_int-cps (operand1 input) state (lambda (v1) (m_value_int-cps (operand2 input) state (lambda (v2) (return (- v1 v2)))))))
+      ((equal? (operator input) '*) (m_value_int-cps (operand1 input) state (lambda (v1) (m_value_int-cps (operand2 input) state (lambda (v2) (return (* v1 v2)))))))
+      ((equal? (operator input) '/) (m_value_int-cps (operand1 input) state (lambda (v1) (m_value_int-cps (operand2 input) state (lambda (v2) (return (quotient v1 v2)))))))
+      ((equal? (operator input) '%) (m_value_int-cps (operand1 input) state (lambda (v1) (m_value_int-cps (operand2 input) state (lambda (v2) (return (remainder v1 v2)))))))
       (else (error 'badop "Undefined operator")))))
 
 ; Gets the operator of an expression
@@ -67,9 +67,9 @@
 (define M_lookup-cps
   (lambda (var state return)
     (cond
-      ((null? state) return 'undefinedVar)
+      ((null? state) (return 'undefinedVar))
       ((equal? var (stateVar state)) (return (stateVal state)))
-      (else (M_lookup var (restOf state))))))
+      (else (M_lookup-cps var (restOf state) return)))))
 
 ; Returns the variable (var) of the first element in the given state
 (define stateVar
