@@ -7,7 +7,7 @@
   (lambda (input state return)
     (cond
       ((number? input) (return input))
-      ((M_lookup-cps input state (lambda (v) (return (and (eq? v 'undefined) (not(list? input)))))) (error 'undefined "Using before assigning"))
+      ((M_lookup-cps input state (lambda (v) (and (eq? v 'undefined) (not(list? input))))) (error 'undefined "Using before assigning"))
       ((not(list? input)) (M_lookup-cps input state (lambda (v) v)))
       ((equal? (operator input) '+)
        (m_value_int-cps (operand1 input) state
@@ -54,7 +54,7 @@
     (cond
       ((boolean? condition) (return condition))
       ((or (equal? condition 'true) (equal? condition 'false)) (return (equal? 'true condition)))
-      ((not(list? condition)) (return (M_lookup-cps condition state)))
+      ((not(list? condition)) (M_lookup-cps condition state return))
       ((equal? (operator condition) '<)
 
        (m_value_boolean-cps condition (m_value_int-cps (operand1 condition) state (lambda (v) v))
@@ -138,9 +138,9 @@
   (lambda (var value state return)
     (cond
       ((equal? (m_value_int-cps (getValue value) state) 'undefinedVar) (error 'undefined "Using before declaring"))
-      ((M_lookup-cps var state (lambda (v1) (return (not (equal? v1 'undefinedVar)))))(m_value_int-cps (getValue value) state (lambda (v2) (M_remove-cps var state (lambda (v3) (return (M_add var v2 v3))))))) 
-      ((M_lookup-cps var state (lambda (v1) (return (and (equal? v1 'undefined) (isBooleanExpression? (getValue value)))))) (m_value_boolean-cps (getValue value) state (lambda (v2) (M_remove-cps var state (lambda (v3) (return M_add var v2 v3))))))
-      ((M_lookup-cps var state (lambda (v1) (return (equal? v1 'undefined)))) (m_value_int-cps (getValue value) state (lambda (v2) (M_remove-cps var state (lambda (v3) (return (M_add var v2 v3)))))))
+      ((M_lookup-cps var state (lambda (v1) (not (equal? v1 'undefinedVar))))(m_value_int-cps (getValue value) state (lambda (v2) (M_remove-cps var state (lambda (v3) (return (M_add var v2 v3))))))) 
+      ((M_lookup-cps var state (lambda (v1) (and (equal? v1 'undefined) (isBooleanExpression? (getValue value))))) (m_value_boolean-cps (getValue value) state (lambda (v2) (M_remove-cps var state (lambda (v3) (return M_add var v2 v3))))))
+      ((M_lookup-cps var state (lambda (v1) (equal? v1 'undefined))) (m_value_int-cps (getValue value) state (lambda (v2) (M_remove-cps var state (lambda (v3) (return (M_add var v2 v3)))))))
       (else (error 'undefined "Using before declaring")))))
 
 ; Gets the value that will be assigned to the variable
@@ -153,7 +153,7 @@
   (lambda (input state return)
     (cond
       ((null? (valueOf input)) (return (M_add (variableOf input) 'undefined state)))
-      ((and (not (equal? 'undefinedVar (M_lookup-cps (variableOf input) state)))(not (equal? 'undefined (M_lookup-cps (variableOf input) state)))) (error 'badoperation "Attempting to redefine already defined variable"))
+      ((M_lookup-cps (variableOf input) state (lambda (v1) (and (not (equal? v1 'undefinedVar))(not(equal? v1 'undefined)))))(error 'badoperation "Attempting to redefine already defined variable"))
       ((and (list? (expressionOf input))(not(null? (valueOfBoolean input)))(isBooleanExpression? (booleanExpressionOf input))) (m_value_boolean-cps (expressionOf input) state (lambda (v) (return (M_add v state)))))
       (else (m_value_int-cps (expressionOf input) state (lambda (v) (return (M_add v state))))))));
 
@@ -203,8 +203,8 @@
       ((number? statement) (return statement))
       ((boolean? statement) (return (booleanToText statement)))
       ((or(equal? statement 'true) (equal? statement 'false)) (m_value_boolean-cps (equal? statement 'true) state (lambda (v) (return (booleanToText v)))))
-      ((M_lookup-cps statement state (lambda (v1) (return (and (not (equal? v1 'undefinedVar)) (boolean? v1))))) (M_lookup-cps statement state (lambda (v2) (return (booleanToText v2)))))
-      ((M_lookup-cps statement state (lambda (v1) (return (not (equal? v1 'undefinedVar))))) (M_lookup-cps statement state return))
+      ((M_lookup-cps statement state (lambda (v1) (and (not (equal? v1 'undefinedVar)) (boolean? v1)))) (M_lookup-cps statement state (lambda (v2) (return (booleanToText v2)))))
+      ((M_lookup-cps statement state (lambda (v1) (not (equal? v1 'undefinedVar)))) (M_lookup-cps statement state return))
       ((isExpression? (expressionOperand statement)) (m_value_int-cps statement state return))
       ((isBooleanExpression? (booleanOperand statement)) (m_value_boolean-cps statement state (lambda (v) (return (booleanToText v)))))
       (else (error "invalid return statement"))
