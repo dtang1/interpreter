@@ -3,20 +3,6 @@
 ; m_value_int
 
 ; Calculates the mathematical value of an expression
-;(define m_value_int
-;  (lambda (input state)
-;    (cond
-;      ((number? input) input)
-;      ((and (not(list? input)) (equal? (M_lookup-cps input state) 'undefined)) (error 'undefined "Using before assigning"))
-;      ((not(list? input)) (M_lookup-cps input state))
-;      ((equal? (operator input) '+) (+ (m_value_int (operand1 input) state) (m_value_int (operand2 input)state)))
-;      ((and (equal? (operator input) '-) (null? (urnarycheck input))) (* -1 (m_value_int (operand1 input) state)))
-;      ((equal? (operator input) '-) (- (m_value_int (operand1 input)state) (m_value_int (operand2 input)state)))
-;      ((equal? (operator input) '*) (* (m_value_int (operand1 input)state) (m_value_int (operand2 input)state)))
-;      ((equal? (operator input) '/) (quotient (m_value_int (operand1 input)state) (m_value_int (operand2 input)state)))
-;      ((equal? (operator input) '%) (remainder (m_value_int (operand1 input)state) (m_value_int (operand2 input)state)))
-;      (else (error 'badop "Undefined operator")))))
-
 (define m_value_int-cps
   (lambda (input state return)
     (cond
@@ -70,7 +56,7 @@
       ((or (equal? condition 'true) (equal? condition 'false)) (return (equal? 'true condition)))
       ((not(list? condition)) (return (M_lookup-cps condition state)))
       ((equal? (operator condition) '<)
-<<<<<<< HEAD
+
        (m_value_boolean-cps condition (m_value_int-cps (operand1 condition) state (lambda (v) v))
                             (lambda (v1) (m_value_boolean-cps condition (m_value_int-cps (operand2 condition) state (lambda (v) v))
                                                               (lambda (v2) (return (< v1 v2)))))))
@@ -103,40 +89,6 @@
       ((equal? (operator condition) '&&)
        (m_value_boolean-cps (operand1 condition) state
                             (lambda (v1) (m_value_boolean-cps (operand2 condition) state
-=======
-       (m_value_boolean_cps condition (m_value_int-cps (operand1 condition) state (lambda (v) v))
-                            (lambda (v1) (m_value_boolean_cps condition (m_value_int-cps (operand2 condition) state (lambda (v) v))
-                                                              (lambda (v2) (return (< v1 v2)))))))
-      ((equal? (operator condition) '<=)
-       (m_value_boolean_cps condition (m_value_int-cps (operand1 condition) state (lambda (v) v))
-                            (lambda (v1) (m_value_boolean_cps condition (m_value_int-cps (operand2 condition) state (lambda (v) v))
-                                                              (lambda (v2) (return (<= v1 v2)))))))
-      ((equal? (operator condition) '>)
-       (m_value_boolean_cps condition (m_value_int-cps (operand1 condition) state (lambda (v) v))
-                            (lambda (v1) (m_value_boolean_cps condition (m_value_int-cps (operand2 condition) state (lambda (v) v))
-                                                              (lambda (v2) (return (> v1 v2)))))))
-      ((equal? (operator condition) '>=)
-       (m_value_boolean_cps condition (m_value_int-cps (operand1 condition) state (lambda (v) v))
-                            (lambda (v1) (m_value_boolean_cps condition (m_value_int-cps (operand2 condition) state (lambda (v) v))
-                                                              (lambda (v2) (return (>= v1 v2)))))))
-      ((equal? (operator condition) '==)
-       (m_value_boolean_cps condition (m_value_int-cps (operand1 condition) state (lambda (v) v))
-                            (lambda (v1) (m_value_boolean_cps condition (m_value_int-cps (operand2 condition) state (lambda (v) v))
-                                                              (lambda (v2) (return (equal? v1 v2)))))))
-      ((equal? (operator condition) '!=)
-       (m_value_boolean_cps condition (m_value_int-cps (operand1 condition) state (lambda (v) v))
-                            (lambda (v1) (m_value_boolean_cps condition (m_value_int-cps (operand2 condition) state (lambda (v) v))
-                                                              (lambda (v2) (return (not(equal? v1 v2))))))))
-      ((equal? (operator condition) '!)
-       (m_value_boolean_cps (operand1 condition) state (lambda (v) (return (not v)))))
-      ((equal? (operator condition) '||)
-       (m_value_boolean_cps (operand1 condition) state
-                            (lambda (v1) (m_value_boolean_cps (operand2 condition) state
-                                                              (lambda (v2) (return (or v1 v2)))))))
-      ((equal? (operator condition) '&&)
-       (m_value_boolean_cps (operand1 condition) state
-                            (lambda (v1) (m_value_boolean_cps (operand2 condition) state
->>>>>>> 88baf5f35f2e35c8174f3c802455c050ce8f5c4f
                                                               (lambda (v2) (return (and v1 v2)))))))
       (else (error 'badop "Undefined operator")))))
 
@@ -183,12 +135,12 @@
 
 ; Assigns a value to a variable
 (define M_state_assign-cps
-  (lambda (var value state)
+  (lambda (var value state return)
     (cond
       ((equal? (m_value_int-cps (getValue value) state) 'undefinedVar) (error 'undefined "Using before declaring"))
-      ((M_lookup-cps var state (lambda (v1) (return (not (equal? v1 'undefinedVar)))))(m_value_int-cps (getValue value) state (lambda (v2) (M_remove var state (lambda (v3) (return (M_add var v2 v3))))))) 
-      ((M_lookup-cps var state (lambda (v1) (return (and (equal? v1 'undefined) (isBoolean? (getValue value)))))) (m_value_boolean-cps (getValue value) state (lambda (v2) (M_remove var state (lambda (v3) (return M_add var v2 v3))))))
-      ((M_lookup-cps var state (lambda (v1) (return (equal? v1 'undefined)))) (m_value_int-cps (getValue value) state (lambda (v2) (M_remove var state (lambda (v3) (return (M_add var v2 v3)))))))
+      ((M_lookup-cps var state (lambda (v1) (return (not (equal? v1 'undefinedVar)))))(m_value_int-cps (getValue value) state (lambda (v2) (M_remove-cps var state (lambda (v3) (return (M_add var v2 v3))))))) 
+      ((M_lookup-cps var state (lambda (v1) (return (and (equal? v1 'undefined) (isBooleanExpression? (getValue value)))))) (m_value_boolean-cps (getValue value) state (lambda (v2) (M_remove-cps var state (lambda (v3) (return M_add var v2 v3))))))
+      ((M_lookup-cps var state (lambda (v1) (return (equal? v1 'undefined)))) (m_value_int-cps (getValue value) state (lambda (v2) (M_remove-cps var state (lambda (v3) (return (M_add var v2 v3)))))))
       (else (error 'undefined "Using before declaring")))))
 
 ; Gets the value that will be assigned to the variable
@@ -231,17 +183,17 @@
     (cadr input)))
 
 ; Determines the state of an if statement
-(define M_state_if
-  (lambda (cond then else state)
-    (if (m_value_int-cps cond state)
-        (M_state_stmt then state)
-        (M_state_stmt else state))))
+(define M_state_if-cps
+  (lambda (cond then else state return)
+    (if (m_value_boolean-cps cond state)
+        (M_state_stmt-cps then state return)
+        (M_state_stmt-cps else state return))))
 
 ; Determines the state of a while loop
 (define M_state_while
   (lambda (cond body state)
-    (if (m_value_int-cps cond state)
-        (M_state_while cond body (M_state_stmt body state))
+    (if (m_value_boolean-cps cond state)
+        (M_state_while cond body (M_state_stmt-cps body state (lambda (v) v)))
         state)))
 
 ; Determines the value of the return statement
@@ -269,14 +221,14 @@
     (car statement)))
 
 ; Determines what state should be called next
-(define M_state_stmt
+(define M_state_stmt-cps
   (lambda (statement state return)
     (cond
-      ((null? statement) state)
+      ((null? statement) (return state))
       ((equal? 'var (stateOperator statement)) (M_state_declare-cps (variableOfDeclare statement) state return))
       ((equal? '= (stateOperator statement)) (M_state_assign-cps (variableOfAssign statement) (valueOfAssign statement) state return))
-      ((and (equal? 'if (stateOperator statement))(pair?(ifThen statement))) (M_state_if (ifCondition statement) (statement1 statement) (statement2 statement) state)) ; If Then statement
-      ((equal? 'if (stateOperator statement)) (M_state_if (ifCondition statement) (statement1 statement) (emptyList) state))                                      ; If statement
+      ((and (equal? 'if (stateOperator statement))(pair?(ifThen statement))) (M_state_if-cps (ifCondition statement) (statement1 statement) (statement2 statement) state return)) ; If Then statement
+      ((equal? 'if (stateOperator statement)) (M_state_if-cps (ifCondition statement) (statement1 statement) (emptyList) state return))                                      ; If statement
       ((equal? 'while (stateOperator statement)) (M_state_while (whileCondition statement) (bodyOfWhile statement) state))
       ((equal? 'return (stateOperator statement)) (M_state_return-cps (valueOfReturn statement) state return)))))
 
@@ -362,4 +314,4 @@
   (lambda (slist s)
     (if (null? slist)
         s
-        (M_state_stmt_list (cdr slist) (M_state_stmt (car slist) s)))))
+        (M_state_stmt_list (cdr slist) (M_state_stmt-cps (car slist) s (lambda (v) v))))))
