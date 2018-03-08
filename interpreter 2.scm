@@ -1,4 +1,4 @@
-#lang racket
+#lang scheme
 ;(load "simpleParser.scm")
 ; m_value_int
 
@@ -153,13 +153,8 @@
     (cond
       ((null? (valueOf input)) (return (M_add (variableOf input) 'undefined state)))
       ((M_lookup-cps (variableOf input) state (lambda (v1) (and (not (equal? v1 'undefinedVar))(not(equal? v1 'undefined)))))(error 'badoperation "Attempting to redefine already defined variable"))
-<<<<<<< HEAD
-      ((and (list? (expressionOf input))(not(null? (valueOfBoolean input)))(isBooleanExpression? (booleanExpressionOf input))) (m_value_boolean-cps (expressionOf input) state (lambda (v) (return (M_add v state)))))
-      (else (m_value_int-cps (expressionOf input) state (lambda (v) (return (M_add (variableOf input) v state))))))))
-=======
       ((and (list? (expressionOf input))(not(null? (valueOfBoolean input)))(isBooleanExpression? (booleanExpressionOf input))) (m_value_boolean-cps (expressionOf input) state (lambda (v) (return (M_add (variableOf input) v state)))))
-      (else (m_value_int-cps (expressionOf input) state (lambda (v) (return (M_add (variableOf input) v state))))))));
->>>>>>> 2f22b31ac34b678dc50ddbae297f95a8935838d6
+      (else (m_value_int-cps (expressionOf input) state (lambda (v) (return (M_add (variableOf input) v state))))))))
 
 ; Returns the boolean expression of the statement, if there is one
 (define booleanExpressionOf
@@ -189,20 +184,24 @@
 ; Determines the state of an if statement
 (define M_state_if-cps
   (lambda (cond then else state return)
-<<<<<<< HEAD
-    (if (m_value_boolean-cps cond state return)
-=======
-    (if (m_value_boolean-cps cond state (lambda (v) v))
->>>>>>> 2f22b31ac34b678dc50ddbae297f95a8935838d6
+    (if (m_value_boolean-cps cond state (lambda (v) v));
         (M_state_stmt-cps then state return)
         (M_state_stmt-cps else state return))))
 
 ; Determines the state of a while loop
-(define M_state_while
+(define M_state_while1
   (lambda (cond body state)
     (if (m_value_boolean-cps cond state (lambda (v) v))
         (M_state_while cond body (M_state_stmt-cps body state (lambda (v) v)))
         state)))
+
+; Determines the state of a while loop
+(define M_state_while
+  (lambda (cond body state)
+    (cond
+      ((not(m_value_boolean-cps cond state (lambda (v) v))) state)
+      ((m_value_boolean-cps cond state (lambda (v) v))(M_state_while cond body (M_state_stmt-cps state (lambda (v) v))))
+      )))
 
 ; Determines the value of the return statement
 (define M_state_return-cps
