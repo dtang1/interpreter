@@ -8,7 +8,7 @@
     (cond
       ((number? input) (return input))
       ((M_lookup-cps input state (lambda (v) (and (eq? v 'undefined) (not(list? input))))) (error 'undefined "Using before assigning"))
-      ((not(list? input)) (M_lookup-cps input state (lambda (v) v)))
+      ((not(list? input)) (M_lookup-cps input state return))
       ((equal? (operator input) '+)
        (m_value_int-cps (operand1 input) state
                         (lambda (v1) (m_value_int-cps (operand2 input) state
@@ -137,7 +137,7 @@
 (define M_state_assign-cps
   (lambda (var value state return)
     (cond
-      ((equal? (m_value_int-cps (getValue value) state) 'undefinedVar) (error 'undefined "Using before declaring"))
+      ((equal? (m_value_int-cps (getValue value) state return) 'undefinedVar) (error 'undefined "Using before declaring"))
       ((M_lookup-cps var state (lambda (v1) (not (equal? v1 'undefinedVar))))(m_value_int-cps (getValue value) state (lambda (v2) (M_remove-cps var state (lambda (v3) (return (M_add var v2 v3))))))) 
       ((M_lookup-cps var state (lambda (v1) (and (equal? v1 'undefined) (isBooleanExpression? (getValue value))))) (m_value_boolean-cps (getValue value) state (lambda (v2) (M_remove-cps var state (lambda (v3) (return M_add var v2 v3))))))
       ((M_lookup-cps var state (lambda (v1) (equal? v1 'undefined))) (m_value_int-cps (getValue value) state (lambda (v2) (M_remove-cps var state (lambda (v3) (return (M_add var v2 v3)))))))
@@ -155,7 +155,7 @@
       ((null? (valueOf input)) (return (M_add (variableOf input) 'undefined state)))
       ((M_lookup-cps (variableOf input) state (lambda (v1) (and (not (equal? v1 'undefinedVar))(not(equal? v1 'undefined)))))(error 'badoperation "Attempting to redefine already defined variable"))
       ((and (list? (expressionOf input))(not(null? (valueOfBoolean input)))(isBooleanExpression? (booleanExpressionOf input))) (m_value_boolean-cps (expressionOf input) state (lambda (v) (return (M_add v state)))))
-      (else (m_value_int-cps (expressionOf input) state (lambda (v) (return (M_add v state))))))));
+      (else (m_value_int-cps (expressionOf input) state (lambda (v) (return (M_add (variableOf input) v state))))))))
 
 ; Returns the boolean expression of the statement, if there is one
 (define booleanExpressionOf
@@ -185,7 +185,7 @@
 ; Determines the state of an if statement
 (define M_state_if-cps
   (lambda (cond then else state return)
-    (if (m_value_boolean-cps cond state)
+    (if (m_value_boolean-cps cond state return)
         (M_state_stmt-cps then state return)
         (M_state_stmt-cps else state return))))
 
