@@ -1,4 +1,4 @@
-#lang scheme
+#lang racket
 ;(load "simpleParser.scm")
 ; m_value_int
 
@@ -70,6 +70,7 @@
       ((or (equal? condition 'true) (equal? condition 'false)) (return (equal? 'true condition)))
       ((not(list? condition)) (return (M_lookup-cps condition state)))
       ((equal? (operator condition) '<)
+<<<<<<< HEAD
        (m_value_boolean-cps condition (m_value_int-cps (operand1 condition) state (lambda (v) v))
                             (lambda (v1) (m_value_boolean-cps condition (m_value_int-cps (operand2 condition) state (lambda (v) v))
                                                               (lambda (v2) (return (< v1 v2)))))))
@@ -102,6 +103,40 @@
       ((equal? (operator condition) '&&)
        (m_value_boolean-cps (operand1 condition) state
                             (lambda (v1) (m_value_boolean-cps (operand2 condition) state
+=======
+       (m_value_boolean_cps condition (m_value_int-cps (operand1 condition) state (lambda (v) v))
+                            (lambda (v1) (m_value_boolean_cps condition (m_value_int-cps (operand2 condition) state (lambda (v) v))
+                                                              (lambda (v2) (return (< v1 v2)))))))
+      ((equal? (operator condition) '<=)
+       (m_value_boolean_cps condition (m_value_int-cps (operand1 condition) state (lambda (v) v))
+                            (lambda (v1) (m_value_boolean_cps condition (m_value_int-cps (operand2 condition) state (lambda (v) v))
+                                                              (lambda (v2) (return (<= v1 v2)))))))
+      ((equal? (operator condition) '>)
+       (m_value_boolean_cps condition (m_value_int-cps (operand1 condition) state (lambda (v) v))
+                            (lambda (v1) (m_value_boolean_cps condition (m_value_int-cps (operand2 condition) state (lambda (v) v))
+                                                              (lambda (v2) (return (> v1 v2)))))))
+      ((equal? (operator condition) '>=)
+       (m_value_boolean_cps condition (m_value_int-cps (operand1 condition) state (lambda (v) v))
+                            (lambda (v1) (m_value_boolean_cps condition (m_value_int-cps (operand2 condition) state (lambda (v) v))
+                                                              (lambda (v2) (return (>= v1 v2)))))))
+      ((equal? (operator condition) '==)
+       (m_value_boolean_cps condition (m_value_int-cps (operand1 condition) state (lambda (v) v))
+                            (lambda (v1) (m_value_boolean_cps condition (m_value_int-cps (operand2 condition) state (lambda (v) v))
+                                                              (lambda (v2) (return (equal? v1 v2)))))))
+      ((equal? (operator condition) '!=)
+       (m_value_boolean_cps condition (m_value_int-cps (operand1 condition) state (lambda (v) v))
+                            (lambda (v1) (m_value_boolean_cps condition (m_value_int-cps (operand2 condition) state (lambda (v) v))
+                                                              (lambda (v2) (return (not(equal? v1 v2))))))))
+      ((equal? (operator condition) '!)
+       (m_value_boolean_cps (operand1 condition) state (lambda (v) (return (not v)))))
+      ((equal? (operator condition) '||)
+       (m_value_boolean_cps (operand1 condition) state
+                            (lambda (v1) (m_value_boolean_cps (operand2 condition) state
+                                                              (lambda (v2) (return (or v1 v2)))))))
+      ((equal? (operator condition) '&&)
+       (m_value_boolean_cps (operand1 condition) state
+                            (lambda (v1) (m_value_boolean_cps (operand2 condition) state
+>>>>>>> 88baf5f35f2e35c8174f3c802455c050ce8f5c4f
                                                               (lambda (v2) (return (and v1 v2)))))))
       (else (error 'badop "Undefined operator")))))
 
