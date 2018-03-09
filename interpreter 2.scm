@@ -96,21 +96,28 @@
   (lambda (var state return)
     (cond
       ((null? state) (return 'undefinedVar))
+      ((null? (car state)) (M_lookup-cps var (expandScope state) return))
       ((equal? var (stateVar state)) (return (stateVal state)))
+      
       (else (M_lookup-cps var (restOf state) return)))))
 
 ; Returns the variable (var) of the first element in the given state
 (define stateVar
   (lambda (state)
-    (caar state)))
+    (caaar state)))
 
 ; Returns the vaule of a component within the state
 (define stateVal
   (lambda (state)
-    (cadar state)))
+    (cadaar state)))
 
 ; Gives the rest of the state following the first (variable value)
 (define restOf
+  (lambda (state)
+    (cons (cdar state) (cdr state))))
+
+; Returns the larger scope
+(define expandScope
   (lambda (state)
     (cdr state)))
 
@@ -189,18 +196,18 @@
         (M_state_stmt-cps else state return))))
 
 ; Determines the state of a while loop
-(define M_state_while1
-  (lambda (cond body state)
+(define M_state_while-cps1
+  (lambda (cond body state return)
     (if (m_value_boolean-cps cond state (lambda (v) v))
-        (M_state_while cond body (M_state_stmt-cps body state (lambda (v) v)))
-        state)))
+        (M_state_while-cps cond body (M_state_stmt-cps body state (lambda (v) v)) return)
+        (return state))))
 
 ; Determines the state of a while loop
-(define M_state_while
-  (lambda (cond body state)
+(define M_state_while-cps
+  (lambda (condition body state return)
     (cond
-      ((not(m_value_boolean-cps cond state (lambda (v) v))) state)
-      ((m_value_boolean-cps cond state (lambda (v) v))(M_state_while cond body (M_state_stmt-cps state (lambda (v) v))))
+      ((m_value_boolean-cps condition state (lambda (v) v)) (M_state_while-cps condition body (M_state_stmt-cps body state (lambda (v) v)) return))
+      (else (return state))
       )))
 
 ; Determines the value of the return statement
@@ -227,6 +234,12 @@
   (lambda (statement)
     (car statement)))
 
+;
+(define M_state_block-cps
+  (lambda (stmt-list state return)
+    (M_state_stmt_list-cps stmt-list (cons '() state) return)))
+    
+
 ; Determines what state should be called next
 (define M_state_stmt-cps
   (lambda (statement state return)
@@ -236,8 +249,9 @@
       ((equal? '= (stateOperator statement)) (M_state_assign-cps (variableOfAssign statement) (valueOfAssign statement) state return))
       ((and (equal? 'if (stateOperator statement))(pair?(ifThen statement))) (M_state_if-cps (ifCondition statement) (statement1 statement) (statement2 statement) state return)) ; If Then statement
       ((equal? 'if (stateOperator statement)) (M_state_if-cps (ifCondition statement) (statement1 statement) (emptyList) state return))                                      ; If statement
-      ((equal? 'while (stateOperator statement)) (M_state_while (whileCondition statement) (bodyOfWhile statement) state))
-      ((equal? 'return (stateOperator statement)) (M_state_return-cps (valueOfReturn statement) state return)))))
+      ((equal? 'while (stateOperator statement)) (M_state_while-cps (whileCondition statement) (bodyOfWhile statement) state return))
+      ((equal? 'begin (stateOperator statement)) (M_state_block-cps (cdr statement) state return))
+      (else (equal? 'return (stateOperator statement)) (M_state_return-cps (valueOfReturn statement) state return)))))
 
 ; Gives the value or expression of the return statement
 (define valueOfReturn
@@ -317,8 +331,8 @@
         'false)))
 
 ; Breaks up the given parse list into smaller statements to be executed
-(define M_state_stmt_list
-  (lambda (slist s)
+(define M_state_stmt_list-cps
+  (lambda (slist s return)
     (if (null? slist)
         s
-        (M_state_stmt_list (cdr slist) (M_state_stmt-cps (car slist) s (lambda (v) v))))))
+        (M_state_stmt_list-cps (cdr slist) (M_state_stmt-cps (car slist) s (lambda (v) v)) return))))
