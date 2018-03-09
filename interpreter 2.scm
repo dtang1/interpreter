@@ -1,4 +1,4 @@
-#lang scheme
+#lang racket
 ;(load "simpleParser.scm")
 ; m_value_int
 
@@ -214,7 +214,7 @@
 ; Determines the state of an if statement
 (define M_state_if-cps
   (lambda (cond then else state return break continueWhile breakWhile)
-    (if (m_value_boolean-cps cond state (lambda (v) v));
+    (if (m_value_boolean-cps cond state (lambda (v) v))
         (M_state_stmt-cps then state return break continueWhile breakWhile)
         (M_state_stmt-cps else state return break continueWhile breakWhile))))
 
@@ -235,6 +235,10 @@
 
 ; Determines the value of the return statement
 (define M_state_return-cps
+  (lambda (statement state return)
+    (M_state_return_helper-cps statement state (lambda (v) (return (M_add 'returnVal v state))))))
+
+(define M_state_return_helper-cps
   (lambda (statement state return)
     (cond
       ((number? statement) (return statement))
@@ -273,7 +277,7 @@
       ((and (equal? 'if (stateOperator statement))(pair?(ifThen statement))) (M_state_if-cps (ifCondition statement) (statement1 statement) (statement2 statement) state return break continueWhile breakWhile)) ; If Then statement
       ((equal? 'if (stateOperator statement)) (M_state_if-cps (ifCondition statement) (statement1 statement) (emptyList) state return break continueWhile breakWhile))                                      ; If statement
       ((equal? 'while (stateOperator statement)) (M_state_while-cps (whileCondition statement) (bodyOfWhile statement) state return))
-      ((equal? 'begin (stateOperator statement))  (M_state_block-cps (cdr statement) state (lambda (v) (return (cdr v))) break continueWhile breakWhile));CPS needs to be addressed
+      ((equal? 'begin (stateOperator statement))  (cdr (M_state_block-cps (cdr statement) state return break continueWhile breakWhile)));CPS needs to be addressed
       ((equal? 'continue (stateOperator statement)) (continueWhile state))
       ((equal? 'break (stateOperator statement)) (breakWhile state))
       (else (equal? 'return (stateOperator statement)) (break (M_state_return-cps (valueOfReturn statement) state return))))))
