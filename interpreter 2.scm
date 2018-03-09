@@ -1,4 +1,3 @@
-#lang racket
 ;(load "simpleParser.scm")
 ; m_value_int
 
@@ -269,7 +268,7 @@
 
 ; Throw state
 (define M_throw
-  (lambda (statement state)
+  (lambda (statement state throw)
     (cond
       ((or (eq? 'true (throwValue statement))
            (eq? 'false (throwValue statement))
