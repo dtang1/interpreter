@@ -213,10 +213,10 @@
 
 ; Determines the state of an if statement
 (define M_state_if-cps
-  (lambda (cond then else state return break)
+  (lambda (cond then else state return break continueWhile breakWhile)
     (if (m_value_boolean-cps cond state (lambda (v) v));
-        (M_state_stmt-cps then state return break null null)
-        (M_state_stmt-cps else state return break null null))))
+        (M_state_stmt-cps then state return break continueWhile breakWhile)
+        (M_state_stmt-cps else state return break continueWhile breakWhile))))
 
 
 ; Determines the state of a while loop
@@ -270,8 +270,8 @@
       ((null? statement) (return state))
       ((equal? 'var (stateOperator statement)) (M_state_declare-cps (variableOfDeclare statement) state return))
       ((equal? '= (stateOperator statement)) (M_state_assign-cps (variableOfAssign statement) (valueOfAssign statement) state return))
-      ((and (equal? 'if (stateOperator statement))(pair?(ifThen statement))) (M_state_if-cps (ifCondition statement) (statement1 statement) (statement2 statement) state return break)) ; If Then statement
-      ((equal? 'if (stateOperator statement)) (M_state_if-cps (ifCondition statement) (statement1 statement) (emptyList) state return break))                                      ; If statement
+      ((and (equal? 'if (stateOperator statement))(pair?(ifThen statement))) (M_state_if-cps (ifCondition statement) (statement1 statement) (statement2 statement) state return break continueWhile breakWhile)) ; If Then statement
+      ((equal? 'if (stateOperator statement)) (M_state_if-cps (ifCondition statement) (statement1 statement) (emptyList) state return break continueWhile breakWhile))                                      ; If statement
       ((equal? 'while (stateOperator statement)) (M_state_while-cps (whileCondition statement) (bodyOfWhile statement) state return))
       ((equal? 'begin (stateOperator statement))  (M_state_block-cps (cdr statement) state (lambda (v) (return (cdr v))) break continueWhile breakWhile));CPS needs to be addressed
       ((equal? 'continue (stateOperator statement)) (continueWhile state))
