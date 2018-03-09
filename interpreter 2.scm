@@ -1,4 +1,4 @@
-#lang scheme
+#lang racket
 ;(load "simpleParser.scm")
 ; m_value_int
 
@@ -125,8 +125,8 @@
   (lambda (var state return)
     (cond
       ((null? state) (error 'undefined))
-      ((null? (cdr state)) (M_remove_helper-cps var (car state) return) )
-      (else (M_remove_helper-cps var (car state) (lambda (v1) (M_remove-cps var (cdr state) (lambda (v2) (return (cons v1 (cons v2 '()))))))))
+      ((null? (cdr state))  (M_remove_helper-cps var (car state) (lambda (v) (return (list v))))) 
+      (else (M_remove_helper-cps var (car state) (lambda (v1) (M_remove-cps var (cdr state) (lambda (v2) (return (cons v1 v2)))))))
       )))
 
 (define M_remove_helper-cps
@@ -141,8 +141,8 @@
   (lambda (var state newValue return)
     (cond
       ((null? state) (error 'undefined))
-      ((null? (cdr state)) (M_replace_helper-cps var (car state) newValue return) )
-      (else (M_replace_helper-cps var (car state) newValue (lambda (v1) (M_replace-cps var (cdr state) newValue (lambda (v2) (return (cons v1 (cons v2 '()))))))))
+      ((null? (cdr state))  (M_replace_helper-cps var (car state) newValue (lambda (v) (return (list v))))) 
+      (else (M_replace_helper-cps var (car state) newValue (lambda (v1) (M_replace-cps var (cdr state) newValue (lambda (v2) (return (cons v1 v2)))))))
       )))
 
 (define M_replace_helper-cps
@@ -273,7 +273,7 @@
       ((and (equal? 'if (stateOperator statement))(pair?(ifThen statement))) (M_state_if-cps (ifCondition statement) (statement1 statement) (statement2 statement) state return)) ; If Then statement
       ((equal? 'if (stateOperator statement)) (M_state_if-cps (ifCondition statement) (statement1 statement) (emptyList) state return))                                      ; If statement
       ((equal? 'while (stateOperator statement)) (M_state_while-cps (whileCondition statement) (bodyOfWhile statement) state return))
-      ((equal? 'begin (stateOperator statement)) (M_state_block-cps (cdr statement) state (lambda (v) (return (cdr v)))))
+      ((equal? 'begin (stateOperator statement))  (cdr (M_state_block-cps (cdr statement) state return)));CPS needs to be addressed
       (else (equal? 'return (stateOperator statement)) (M_state_return-cps (valueOfReturn statement) state return)))))
 
 ; Gives the value or expression of the return statement
