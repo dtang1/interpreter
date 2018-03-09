@@ -268,7 +268,7 @@
 
 ; Throw state
 (define M_throw
-  (lambda (statement state throw)
+  (lambda (statement state)
     (cond
       ((or (eq? 'true (throwValue statement))
            (eq? 'false (throwValue statement))
@@ -284,8 +284,9 @@
 ; Executes the try catch finally of a try statement
 (define M_try
   (lambda (statement state return break continueWhile breakWhile throw)
-    (cond
-      )))
+    (call/cc
+     (lambda (throw)
+       (M_state_stmt-cps statement state return break continueWhile breakWhile throw)))))
 
 ; Determines what state should be called next
 (define M_state_stmt-cps
@@ -300,7 +301,7 @@
       ((equal? 'begin (stateOperator statement))  (cdr (M_state_block-cps (cdr statement) state return break continueWhile breakWhile)));CPS needs to be addressed
       ((equal? 'continue (stateOperator statement)) (continueWhile state))
       ((equal? 'break (stateOperator statement)) (breakWhile state))
-      ((equal? 'throw (stateOperator statement)) (M_throw statement state))
+      ((equal? 'throw (stateOperator statement)) (throw (M_throw statement state) state))
       ((equal? 'try (stateOperator statement)) (M_try statement state return break continueWhile breakWhile))
       (else (equal? 'return (stateOperator statement)) (break (M_state_return-cps (valueOfReturn statement) state return))))))
 
