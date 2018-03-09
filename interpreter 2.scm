@@ -96,7 +96,7 @@
   (lambda (var state return)
     (cond
       ((null? state) (return 'undefinedVar))
-      ((null? (car state)) (M_lookup-cps var (expandScope state) return))
+      ((or (null? (car state))(null? (caar state))) (M_lookup-cps var (expandScope state) return))
       ((equal? var (stateVar state)) (return (stateVal state)))
       (else (M_lookup-cps var (restOf state) return)))))
 
@@ -125,13 +125,37 @@
   (lambda (var state return)
     (cond
       ((null? state) (error 'undefined))
-      ((equal? var (stateVar state)) (return (restOf state)))
-      (else (M_remove-cps var (restOf state) (lambda (v) (return (cons (firstElementOf state) v))))))))
+      ((null? (cdr state)) (M_remove_helper-cps var (car state) return) )
+      (else (M_remove_helper-cps var (car state) (lambda (v1) (M_remove-cps var (cdr state) (lambda (v2) (return (cons v1 (cons v2 '()))))))))
+      )))
+
+(define M_remove_helper-cps
+  (lambda (var state return)
+    (cond
+      ((null? state) (return '()))
+      ((equal? var (caar state)) (return (cdr state)))
+      (else (M_remove_helper-cps var (cdr state) (lambda (v) (return (cons (car state) v))))))))
+
+; Performs a nested remove and add to repalce the value of a variable (deep add)
+(define M_replace-cps
+  (lambda (var state newValue return)
+    (cond
+      ((null? state) (error 'undefined))
+      ((null? (cdr state)) (M_replace_helper-cps var (car state) newValue return) )
+      (else (M_replace_helper-cps var (car state) newValue (lambda (v1) (M_replace-cps var (cdr state) newValue (lambda (v2) (return (cons v1 (cons v2 '()))))))))
+      )))
+
+(define M_replace_helper-cps
+  (lambda (var state newValue return)
+    (cond
+      ((null? state) (return '()))
+      ((equal? var (caar state)) (return (cons (list var newValue) (cdr state))))
+      (else (M_replace_helper-cps var (cdr state) newValue (lambda (v) (return (cons (car state) v))))))))
 
 ; Gives the first (variable value) in the state
 (define firstElementOf
   (lambda (state)
-    (car state)))
+    (caar state)))
 
 ; Adds the (variable value) to the state
 (define M_add
@@ -143,9 +167,9 @@
   (lambda (var value state return)
     (cond
       ((equal? (m_value_int-cps (getValue value) state return) 'undefinedVar) (error 'undefined "Using before declaring"))
-      ((M_lookup-cps var state (lambda (v1) (not (equal? v1 'undefinedVar))))(m_value_int-cps (getValue value) state (lambda (v2) (M_remove-cps var state (lambda (v3) (return (M_add var v2 v3))))))) 
-      ((M_lookup-cps var state (lambda (v1) (and (equal? v1 'undefined) (isBooleanExpression? (getValue value))))) (m_value_boolean-cps (getValue value) state (lambda (v2) (M_remove-cps var state (lambda (v3) (return M_add var v2 v3))))))
-      ((M_lookup-cps var state (lambda (v1) (equal? v1 'undefined))) (m_value_int-cps (getValue value) state (lambda (v2) (M_remove-cps var state (lambda (v3) (return (M_add var v2 v3)))))))
+      ((M_lookup-cps var state (lambda (v1) (not (equal? v1 'undefinedVar))))(m_value_int-cps (getValue value) state (lambda (v2) (M_replace-cps var state v2 return))));(M_remove-cps var state (lambda (v3) (return (M_add var v2 v3))))))) 
+      ((M_lookup-cps var state (lambda (v1) (and (equal? v1 'undefined) (isBooleanExpression? (getValue value))))) (m_value_boolean-cps (getValue value) state (lambda (v2) (M_replace-cps var state v2 return))));(M_remove-cps var state (lambda (v3) (return M_add var v2 v3))))))
+      ((M_lookup-cps var state (lambda (v1) (equal? v1 'undefined))) (m_value_int-cps (getValue value) state (lambda (v2) (M_replace-cps var state v2 return))));(M_remove-cps var state (lambda (v3) (return (M_add var v2 v3)))))))
       (else (error 'undefined "Using before declaring")))))
 
 ; Gets the value that will be assigned to the variable
@@ -249,7 +273,7 @@
       ((and (equal? 'if (stateOperator statement))(pair?(ifThen statement))) (M_state_if-cps (ifCondition statement) (statement1 statement) (statement2 statement) state return)) ; If Then statement
       ((equal? 'if (stateOperator statement)) (M_state_if-cps (ifCondition statement) (statement1 statement) (emptyList) state return))                                      ; If statement
       ((equal? 'while (stateOperator statement)) (M_state_while-cps (whileCondition statement) (bodyOfWhile statement) state return))
-      ((equal? 'begin (stateOperator statement)) (M_state_block-cps (cdr statement) state return))
+      ((equal? 'begin (stateOperator statement)) (M_state_block-cps (cdr statement) state (lambda (v) (return (cdr v)))))
       (else (equal? 'return (stateOperator statement)) (M_state_return-cps (valueOfReturn statement) state return)))))
 
 ; Gives the value or expression of the return statement
