@@ -98,7 +98,6 @@
       ((null? state) (return 'undefinedVar))
       ((null? (car state)) (M_lookup-cps var (expandScope state) return))
       ((equal? var (stateVar state)) (return (stateVal state)))
-      
       (else (M_lookup-cps var (restOf state) return)))))
 
 ; Returns the variable (var) of the first element in the given state
@@ -137,7 +136,7 @@
 ; Adds the (variable value) to the state
 (define M_add
   (lambda (var value state)
-    (cons (list var value) state)))
+    (cons (cons (list var value) (car state)) (cdr state))))
 
 ; Assigns a value to a variable
 (define M_state_assign-cps
