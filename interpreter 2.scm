@@ -1,4 +1,4 @@
-;(load "simpleParser.scm")
+(load "simpleParser.scm")
 ; m_value_int
 
 ; Calculates the mathematical value of an expression
@@ -212,15 +212,15 @@
 
 ; Determines the state of an if statement
 (define M_state_if-cps
-  (lambda (cond then else state return break continueWhile breakWhile)
+  (lambda (cond then else state return break continueWhile breakWhile throw)
     (if (m_value_boolean-cps cond state (lambda (v) v))
-        (M_state_stmt-cps then state return break continueWhile breakWhile)
-        (M_state_stmt-cps else state return break continueWhile breakWhile))))
+        (M_state_stmt-cps then state return break continueWhile breakWhile throw)
+        (M_state_stmt-cps else state return break continueWhile breakWhile throw))))
 
 
 ; Determines the state of a while loop
 (define M_state_while-cps
-  (lambda (condition body state return)
+  (lambda (condition body state return throw)
     (cond
       ((m_value_boolean-cps condition state (lambda (v) v))
        (call/cc
@@ -228,7 +228,7 @@
           (M_state_while-cps condition body
                              (call/cc
                               (lambda (continueWhile)
-                                (M_state_stmt-cps body state (lambda (v) v) (lambda (v2) v2) continueWhile breakWhile))) return))))
+                                (M_state_stmt-cps body state (lambda (v) v) (lambda (v2) v2) continueWhile breakWhile throw))) return throw))))
       (else (return state))
       )))
 
@@ -262,8 +262,8 @@
 
 ;
 (define M_state_block-cps
-  (lambda (stmt-list state return break continueWhile breakWhile)
-    (M_state_stmt_list-cps stmt-list (cons '() state) return break continueWhile breakWhile)))
+  (lambda (stmt-list state return break continueWhile breakWhile throw)
+    (M_state_stmt_list-cps stmt-list (cons '() state) return break continueWhile breakWhile throw)))
 
 
 ; Throw state
@@ -294,10 +294,10 @@
       ((null? statement) (return state))
       ((equal? 'var (stateOperator statement)) (M_state_declare-cps (variableOfDeclare statement) state return))
       ((equal? '= (stateOperator statement)) (M_state_assign-cps (variableOfAssign statement) (valueOfAssign statement) state return))
-      ((and (equal? 'if (stateOperator statement))(pair?(ifThen statement))) (M_state_if-cps (ifCondition statement) (statement1 statement) (statement2 statement) state return break continueWhile breakWhile)) ; If Then statement
-      ((equal? 'if (stateOperator statement)) (M_state_if-cps (ifCondition statement) (statement1 statement) (emptyList) state return break continueWhile breakWhile))                                      ; If statement
-      ((equal? 'while (stateOperator statement)) (M_state_while-cps (whileCondition statement) (bodyOfWhile statement) state return))
-      ((equal? 'begin (stateOperator statement))  (cdr (M_state_block-cps (cdr statement) state return break continueWhile breakWhile)));CPS needs to be addressed
+      ((and (equal? 'if (stateOperator statement))(pair?(ifThen statement))) (M_state_if-cps (ifCondition statement) (statement1 statement) (statement2 statement) state return break continueWhile breakWhile throw)) ; If Then statement
+      ((equal? 'if (stateOperator statement)) (M_state_if-cps (ifCondition statement) (statement1 statement) (emptyList) state return break continueWhile breakWhile throw))                                      ; If statement
+      ((equal? 'while (stateOperator statement)) (M_state_while-cps (whileCondition statement) (bodyOfWhile statement) state return throw))
+      ((equal? 'begin (stateOperator statement))  (cdr (M_state_block-cps (cdr statement) state return break continueWhile breakWhile throw)));CPS needs to be addressed
       ((equal? 'continue (stateOperator statement)) (continueWhile state))
       ((equal? 'break (stateOperator statement)) (breakWhile state))
       ((equal? 'throw (stateOperator statement)) (M_throw statement state))
@@ -383,10 +383,11 @@
 
 ; Breaks up the given parse list into smaller statements to be executed
 (define M_state_stmt_list-cps
-  (lambda (slist s return break continueWhile breakWhile)
+  (lambda (slist s return break continueWhile breakWhile throw)
        (if (null? slist)
            s
-           (M_state_stmt_list-cps (cdr slist) (M_state_stmt-cps (car slist) s (lambda (returnValue) returnValue) break continueWhile breakWhile) return break continueWhile breakWhile))))
+           (M_state_stmt_list-cps (cdr slist) (M_state_stmt-cps (car slist) s (lambda (returnValue) returnValue) break continueWhile breakWhile throw) return break continueWhile breakWhile throw))))
 
-;(load "simpleParser.scm")
-;(call/cc (lambda (break) (M_state_stmt_list-cps (parser "test.txt") '(()) (lambda (v) v) break (lambda (cw) cw) (lambda (bw) bw))))
+(define interpret
+  (lambda (filename)
+    (M_lookup-cps 'returnVal (call/cc (lambda (break) (M_state_stmt_list-cps (parser filename) '(()) (lambda (v) v) break (lambda (cw) cw) (lambda (bw) bw) (lambda (e s) (list e s))))) (lambda (v) v))))
