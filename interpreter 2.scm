@@ -1,4 +1,4 @@
-#lang racket
+#lang scheme
 ;(load "simpleParser.scm")
 ; m_value_int
 
@@ -215,21 +215,21 @@
 (define M_state_if-cps
   (lambda (cond then else state return break)
     (if (m_value_boolean-cps cond state (lambda (v) v));
-        (M_state_stmt-cps then state return break)
-        (M_state_stmt-cps else state return break))))
+        (M_state_stmt-cps then state return break null null)
+        (M_state_stmt-cps else state return break null null))))
 
-; Determines the state of a while loop
-(define M_state_while-cps1
-  (lambda (cond body state return)
-    (if (m_value_boolean-cps cond state (lambda (v) v))
-        (M_state_while-cps cond body (M_state_stmt-cps body state (lambda (v) v)) return)
-        (return state))))
 
 ; Determines the state of a while loop
 (define M_state_while-cps
   (lambda (condition body state return)
     (cond
-      ((m_value_boolean-cps condition state (lambda (v) v)) (M_state_while-cps condition body (M_state_stmt-cps body state (lambda (v) v) (lambda (v2) v2)) return))
+      ((m_value_boolean-cps condition state (lambda (v) v))
+       (call/cc
+        (lambda (breakWhile)
+          (M_state_while-cps condition body
+                             (call/cc
+                              (lambda (continueWhile)
+                                (M_state_stmt-cps body state (lambda (v) v) (lambda (v2) v2) continueWhile breakWhile))) return))))
       (else (return state))
       )))
 
@@ -259,13 +259,13 @@
 
 ;
 (define M_state_block-cps
-  (lambda (stmt-list state return break)
-    (M_state_stmt_list-cps stmt-list (cons '() state) return break)))
+  (lambda (stmt-list state return break continueWhile breakWhile)
+    (M_state_stmt_list-cps stmt-list (cons '() state) return break continueWhile breakWhile)))
     
 
 ; Determines what state should be called next
 (define M_state_stmt-cps
-  (lambda (statement state return break)
+  (lambda (statement state return break continueWhile breakWhile)
     (cond
       ((null? statement) (return state))
       ((equal? 'var (stateOperator statement)) (M_state_declare-cps (variableOfDeclare statement) state return))
@@ -273,7 +273,9 @@
       ((and (equal? 'if (stateOperator statement))(pair?(ifThen statement))) (M_state_if-cps (ifCondition statement) (statement1 statement) (statement2 statement) state return break)) ; If Then statement
       ((equal? 'if (stateOperator statement)) (M_state_if-cps (ifCondition statement) (statement1 statement) (emptyList) state return break))                                      ; If statement
       ((equal? 'while (stateOperator statement)) (M_state_while-cps (whileCondition statement) (bodyOfWhile statement) state return))
-      ((equal? 'begin (stateOperator statement))  (M_state_block-cps (cdr statement) state (lambda (v) (return (cdr v))) break));CPS needs to be addressed
+      ((equal? 'begin (stateOperator statement))  (M_state_block-cps (cdr statement) state (lambda (v) (return (cdr v))) break continueWhile breakWhile));CPS needs to be addressed
+      ((equal? 'continue (stateOperator statement)) (continueWhile state))
+      ((equal? 'break (stateOperator statement)) (breakWhile state))
       (else (equal? 'return (stateOperator statement)) (break (M_state_return-cps (valueOfReturn statement) state return))))))
 
 ; Gives the value or expression of the return statement
@@ -355,7 +357,10 @@
 
 ; Breaks up the given parse list into smaller statements to be executed
 (define M_state_stmt_list-cps
-  (lambda (slist s return break)
+  (lambda (slist s return break continueWhile breakWhile)
        (if (null? slist)
            s
-           (M_state_stmt_list-cps (cdr slist) (M_state_stmt-cps (car slist) s (lambda (v) v) break) return break))))
+           (M_state_stmt_list-cps (cdr slist) (M_state_stmt-cps (car slist) s (lambda (returnValue) returnValue) break continueWhile breakWhile) return break continueWhile breakWhile))))
+
+;(load "simpleParser.scm")
+;(call/cc (lambda (break) (M_state_stmt_list-cps (parser "test.txt") '(()) (lambda (v) v) break (lambda (cw) cw) (lambda (bw) bw))))
