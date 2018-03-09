@@ -1,4 +1,4 @@
-#lang scheme
+#lang racket
 ;(load "simpleParser.scm")
 ; m_value_int
 
@@ -261,11 +261,32 @@
 (define M_state_block-cps
   (lambda (stmt-list state return break continueWhile breakWhile)
     (M_state_stmt_list-cps stmt-list (cons '() state) return break continueWhile breakWhile)))
-    
+
+
+; Throw state
+(define M_throw
+  (lambda (statement state)
+    (cond
+      ((or (eq? 'true (throwValue statement))
+           (eq? 'false (throwValue statement))
+           (number? (throwValue statement)))
+       (throwValue statement))
+      (else
+       (M_lookup-cps (throwValue statement) state (lambda (v) v))))))
+; Returns the throw value
+(define throwValue
+  (lambda (statement)
+    (cadr statement)))
+
+; Executes the try catch finally of a try statement
+(define M_try
+  (lambda (statement state return break continueWhile breakWhile throw)
+    (cond
+      )))
 
 ; Determines what state should be called next
 (define M_state_stmt-cps
-  (lambda (statement state return break continueWhile breakWhile)
+  (lambda (statement state return break continueWhile breakWhile throw)
     (cond
       ((null? statement) (return state))
       ((equal? 'var (stateOperator statement)) (M_state_declare-cps (variableOfDeclare statement) state return))
@@ -276,6 +297,8 @@
       ((equal? 'begin (stateOperator statement))  (M_state_block-cps (cdr statement) state (lambda (v) (return (cdr v))) break continueWhile breakWhile));CPS needs to be addressed
       ((equal? 'continue (stateOperator statement)) (continueWhile state))
       ((equal? 'break (stateOperator statement)) (breakWhile state))
+      ((equal? 'throw (stateOperator statement)) (M_throw statement state))
+      ((equal? 'try (stateOperator statement)) (M_try statement state return break continueWhile breakWhile))
       (else (equal? 'return (stateOperator statement)) (break (M_state_return-cps (valueOfReturn statement) state return))))))
 
 ; Gives the value or expression of the return statement
