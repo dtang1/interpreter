@@ -300,7 +300,7 @@
 
 (define M_catch
   (lambda (stmtlist state return break continueWhile breakWhile throw)
-       (M_state_stmt_list-cps statement_list state return break continueWhile breakWhile throw)))
+       (M_state_stmt_list-cps stmtlist state return break continueWhile breakWhile throw)))
 
 
 ; Determines what state should be called next
@@ -318,8 +318,8 @@
       ((equal? 'break (stateOperator statement)) (breakWhile state))
       ((equal? 'throw (stateOperator statement)) (throw (M_add 'thrown (M_throw statement state) state)))
       ((equal? 'finally (stateOperator statement)) (M_state_stmt_list-cps (cadr statement) state return break continueWhile breakWhile throw))
-      ((equal? 'catch (stateOperator statement)) (if (equal? 'undefinedVar (M_lookup-cps 'thrown state (lambda (v)v)))
-                                                     (M_catch (caadr statement) (M_add (cadr state) (M_lookup-cps 'thrown state (lambda (v)v)) (M_remove-cps 'thrown state (lambda (v)v))))
+      ((equal? 'catch (stateOperator statement)) (if (not (equal? 'undefinedVar (M_lookup-cps 'thrown state (lambda (v)v))))
+                                                     (M_catch (caddr statement) (M_add (caadr statement) (M_lookup-cps 'thrown state (lambda (v)v)) (M_remove-cps 'thrown state (lambda (v)v))) return break continueWhile breakWhile throw)
                                                      state))
       ((equal? 'try (stateOperator statement)) (M_state_stmt_list-cps (cddr statement) (call/cc
                                                 (lambda (throw)
