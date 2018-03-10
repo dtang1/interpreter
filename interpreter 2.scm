@@ -95,9 +95,19 @@
   (lambda (var state return)
     (cond
       ((null? state) (return 'undefinedVar))
-      ((or (null? (car state))(null? (caar state))) (M_lookup-cps var (expandScope state) return))
+      ((or (null? (lowScopeVariablesOf state))(null? (lowScopeVariable state))) (M_lookup-cps var (expandScope state) return))
       ((equal? var (stateVar state)) (return (stateVal state)))
       (else (M_lookup-cps var (restOf state) return)))))
+
+; Determines if the lowest scope sections of the state contains variables
+(define lowScopeVariablesOf
+  (lambda (state)
+    (car state)))
+
+; Determines if the lowest scope states first variable exists
+(define lowScopeVariable
+  (lambda (state)
+    (caar state)))
 
 ; Returns the variable (var) of the first element in the given state
 (define stateVar
@@ -124,32 +134,32 @@
   (lambda (var state return)
     (cond
       ((null? state) (error 'undefined))
-      ((null? (cdr state))  (M_remove_helper-cps var (car state) (lambda (v) (return (list v))))) 
-      (else (M_remove_helper-cps var (car state) (lambda (v1) (M_remove-cps var (cdr state) (lambda (v2) (return (cons v1 v2)))))))
+      ((null? (expandScope state))  (M_remove_helper-cps var (lowScopeVariablesOf state) (lambda (v) (return (list v))))) 
+      (else (M_remove_helper-cps var (lowScopeVariable state) (lambda (v1) (M_remove-cps var (expandScope state) (lambda (v2) (return (cons v1 v2)))))))
       )))
 
 (define M_remove_helper-cps
   (lambda (var state return)
     (cond
       ((null? state) (return '()))
-      ((equal? var (caar state)) (return (cdr state)))
-      (else (M_remove_helper-cps var (cdr state) (lambda (v) (return (cons (car state) v))))))))
+      ((equal? var (lowScopeVariable state)) (return (expandScope state)))
+      (else (M_remove_helper-cps var (expandScope state) (lambda (v) (return (cons (lowScopeVariablesOf state) v))))))))
 
 ; Performs a nested remove and add to repalce the value of a variable (deep add)
 (define M_replace-cps
   (lambda (var state newValue return)
     (cond
       ((null? state) (error 'undefined))
-      ((null? (cdr state))  (M_replace_helper-cps var (car state) newValue (lambda (v) (return (list v))))) 
-      (else (M_replace_helper-cps var (car state) newValue (lambda (v1) (M_replace-cps var (cdr state) newValue (lambda (v2) (return (cons v1 v2)))))))
+      ((null? (expandScope state))  (M_replace_helper-cps var (lowScopeVariablesOf state) newValue (lambda (v) (return (list v))))) 
+      (else (M_replace_helper-cps var (lowScopeVariablesOf state) newValue (lambda (v1) (M_replace-cps var (expandScope state) newValue (lambda (v2) (return (cons v1 v2)))))))
       )))
 
 (define M_replace_helper-cps
   (lambda (var state newValue return)
     (cond
       ((null? state) (return '()))
-      ((equal? var (caar state)) (return (cons (list var newValue) (cdr state))))
-      (else (M_replace_helper-cps var (cdr state) newValue (lambda (v) (return (cons (car state) v))))))))
+      ((equal? var (lowScopeVariable state)) (return (cons (list var newValue) (expandScope state))))
+      (else (M_replace_helper-cps var (expandScope state) newValue (lambda (v) (return (cons (lowScopeVariablesOf state) v))))))))
 
 ; Gives the first (variable value) in the state
 (define firstElementOf
@@ -159,7 +169,7 @@
 ; Adds the (variable value) to the state
 (define M_add
   (lambda (var value state)
-    (cons (cons (list var value) (car state)) (cdr state))))
+    (cons (cons (list var value) (lowScopeVariablesOf state)) (expandScope state))))
 
 ; Assigns a value to a variable
 (define M_state_assign-cps
@@ -398,7 +408,17 @@
   (lambda (slist s return break continueWhile breakWhile throw)
        (if (null? slist)
            s
-           (M_state_stmt_list-cps (cdr slist) (M_state_stmt-cps (car slist) s (lambda (returnValue) returnValue) break continueWhile breakWhile throw) return break continueWhile breakWhile throw))))
+           (M_state_stmt_list-cps (restOfStatementList slist) (M_state_stmt-cps (firstStatementOf slist) s (lambda (returnValue) returnValue) break continueWhile breakWhile throw) return break continueWhile breakWhile throw))))
+
+; Gets all statements in the statements list following the first one
+(define restOfStatementList
+  (lambda (slist)
+    (cdr slist)))
+
+; Gets the first statement from the statement list
+(define firstStatementOf
+  (lambda (slist)
+    (car slist)))
 
 (define interpret
   (lambda (filename)
