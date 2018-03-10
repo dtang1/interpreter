@@ -317,14 +317,34 @@
       ((equal? 'continue (stateOperator statement)) (continueWhile state))
       ((equal? 'break (stateOperator statement)) (breakWhile state))
       ((equal? 'throw (stateOperator statement)) (throw (M_add 'thrown (M_throw statement state) state)))
-      ((equal? 'finally (stateOperator statement)) (M_state_stmt_list-cps (cadr statement) state return break continueWhile breakWhile throw))
+      ((equal? 'finally (stateOperator statement)) (M_state_stmt_list-cps (getFinallyBodyOf statement) state return break continueWhile breakWhile throw))
       ((equal? 'catch (stateOperator statement)) (if (not (equal? 'undefinedVar (M_lookup-cps 'thrown state (lambda (v)v))))
-                                                     (M_catch (caddr statement) (M_add (caadr statement) (M_lookup-cps 'thrown state (lambda (v)v)) (M_remove-cps 'thrown state (lambda (v)v))) return break continueWhile breakWhile throw)
+                                                     (M_catch (getCatchBodyOf statement) (M_add (getEValueOf statement) (M_lookup-cps 'thrown state (lambda (v)v)) (M_remove-cps 'thrown state (lambda (v)v))) return break continueWhile breakWhile throw)
                                                      state))
       ((equal? 'try (stateOperator statement)) (M_state_stmt_list-cps (cddr statement) (call/cc
                                                 (lambda (throw)
-                                                  (M_try (cadr statement) state return break continueWhile breakWhile throw))) return break continueWhile breakWhile throw))
+                                                  (M_try (getTryBodyOf statement) state return break continueWhile breakWhile throw))) return break continueWhile breakWhile throw))
       (else (equal? 'return (stateOperator statement)) (break (M_state_return-cps (valueOfReturn statement) state return))))))
+
+; Retreives the body of the finally statement
+(define getFinallyBodyOf
+  (lambda (statement)
+    (cadr statement)))
+
+; Retreives the body of the catch statement
+(define getCatchBodyOf
+  (lambda (statement)
+    (caddr statement)))
+
+; Gets the 'e' value for the catch statement
+(define getEValueOf
+  (lambda (statement)
+    (caadr statement)))
+
+; Retreives the body of the try statement
+(define getTryBodyOf
+  (lambda (statement)
+    (cadr statement)))
 
 ; Gives the value or expression of the return statement
 (define valueOfReturn
@@ -420,6 +440,7 @@
   (lambda (slist)
     (car slist)))
 
+; Interprets the text file assuming it is written in Java style
 (define interpret
   (lambda (filename)
     (M_lookup-cps 'returnVal (call/cc (lambda (break) (M_state_stmt_list-cps (parser filename) '(()) (lambda (v) v) break (lambda (cw) cw) (lambda (bw) bw) (lambda (th) th)))) (lambda (v) v))))
