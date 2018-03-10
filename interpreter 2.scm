@@ -1,3 +1,4 @@
+
 (load "simpleParser.scm")
 ; m_value_int
 
@@ -95,6 +96,7 @@
   (lambda (var state return)
     (cond
       ((null? state) (return 'undefinedVar))
+      ;((null? (cdr state)) (return 'undefinedVar))
       ((or (null? (lowScopeVariablesOf state))(null? (lowScopeVariable state))) (M_lookup-cps var (expandScope state) return))
       ((equal? var (stateVar state)) (return (stateVal state)))
       (else (M_lookup-cps var (restOf state) return)))))
@@ -135,7 +137,7 @@
     (cond
       ((null? state) (error 'undefined))
       ((null? (expandScope state))  (M_remove_helper-cps var (lowScopeVariablesOf state) (lambda (v) (return (list v))))) 
-      (else (M_remove_helper-cps var (lowScopeVariable state) (lambda (v1) (M_remove-cps var (expandScope state) (lambda (v2) (return (cons v1 v2)))))))
+      (else (M_remove_helper-cps var (lowScopeVariablesOf state) (lambda (v1) (M_remove-cps var (cdr state) (lambda (v2) (return (cons v1 v2)))))))
       )))
 
 (define M_remove_helper-cps
@@ -169,7 +171,17 @@
 ; Adds the (variable value) to the state
 (define M_add
   (lambda (var value state)
-    (cons (cons (list var value) (lowScopeVariablesOf state)) (expandScope state))))
+    (cons (cons (list var value) (startOfGlobal state)) (restOfGlobal state))))
+
+; Gets the start of the state
+(define startOfGlobal
+  (lambda (state)
+    (car state)))
+
+; Gets the rest of the state
+(define restOfGlobal
+  (lambda (state)
+    (cdr state)))
 
 ; Assigns a value to a variable
 (define M_state_assign-cps
@@ -281,9 +293,19 @@
 ; Adds global variable
 (define M_add_global
   (lambda (var value state)
-    (if (null? (cdr state))
+    (if (null? (globalRestOf state))
         (M_add var value state)
-        (cons (car state) (M_add_global var value (cdr state))))))
+        (cons (firstOfGlobal state) (M_add_global var value (globalRestOf state))))))
+
+; Returns the begining of the state
+(define firstOfGlobal
+  (lambda (state)
+    (car state)))
+
+; Returns the rest of the state
+(define globalRestOf
+  (lambda (state)
+    (cdr state)))
 
 ; Throw state
 (define M_throw
@@ -324,16 +346,21 @@
       ((equal? 'while (stateOperator statement)) (M_state_while-cps (whileCondition statement) (bodyOfWhile statement) state return throw))
       ((equal? 'begin (stateOperator statement))  (cdr (M_state_block-cps (cdr statement) state return break continueWhile breakWhile throw)));CPS needs to be addressed
       ((equal? 'continue (stateOperator statement)) (continueWhile state))
-      ((equal? 'break (stateOperator statement)) (breakWhile state))
+      ((equal? 'break (stateOperator statement)) (breakWhile (cdr state)))
       ((equal? 'throw (stateOperator statement)) (throw (M_add 'thrown (M_throw statement state) state)))
       ((equal? 'finally (stateOperator statement)) (M_state_stmt_list-cps (getFinallyBodyOf statement) state return break continueWhile breakWhile throw))
       ((equal? 'catch (stateOperator statement)) (if (not (equal? 'undefinedVar (M_lookup-cps 'thrown state (lambda (v)v))))
                                                      (M_catch (getCatchBodyOf statement) (M_add (getEValueOf statement) (M_lookup-cps 'thrown state (lambda (v)v)) (M_remove-cps 'thrown state (lambda (v)v))) return break continueWhile breakWhile throw)
                                                      state))
-      ((equal? 'try (stateOperator statement)) (M_state_stmt_list-cps (cddr statement) (call/cc
+      ((equal? 'try (stateOperator statement)) (M_state_stmt_list-cps (getNotTryBodyOf statement) (call/cc
                                                 (lambda (throw)
                                                   (M_try (getTryBodyOf statement) state return break continueWhile breakWhile throw))) return break continueWhile breakWhile throw))
       (else (equal? 'return (stateOperator statement)) (break (M_state_return-cps (valueOfReturn statement) state return))))))
+
+; Gets the non-try part of the try catch statement
+(define getNotTryBodyOf
+  (lambda (statement)
+    (cddr statement)))
 
 ; Retreives the body of the finally statement
 (define getFinallyBodyOf
@@ -449,7 +476,7 @@
   (lambda (slist)
     (car slist)))
 
-; Interprets the text file assuming it is written in Java style
+; INterprets the text file assuming it is written in Java style
 (define interpret
   (lambda (filename)
     (M_lookup-cps 'returnVal (call/cc (lambda (returnBreak) (M_state_stmt_list-cps (parser filename) '(()) (lambda (v) v) returnBreak (lambda (cw) cw) (lambda (bw) bw) (lambda (th) th)))) (lambda (v) v))))
