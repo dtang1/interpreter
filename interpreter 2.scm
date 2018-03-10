@@ -235,7 +235,9 @@
 ; Determines the value of the return statement
 (define M_state_return-cps
   (lambda (statement state return)
-    (M_state_return_helper-cps statement state (lambda (v) (return (M_add 'returnVal v state))))))
+    (if (equal? (M_lookup-cps 'returnVal state return) 'undefinedVar)
+        (M_state_return_helper-cps statement state (lambda (v) (return (M_add_global 'returnVal v state))))
+        state)))
 
 (define M_state_return_helper-cps
   (lambda (statement state return)
@@ -245,6 +247,7 @@
       ((or(equal? statement 'true) (equal? statement 'false)) (m_value_boolean-cps (equal? statement 'true) state (lambda (v) (return (booleanToText v)))))
       ((M_lookup-cps statement state (lambda (v1) (and (not (equal? v1 'undefinedVar)) (boolean? v1)))) (M_lookup-cps statement state (lambda (v2) (return (booleanToText v2)))))
       ((M_lookup-cps statement state (lambda (v1) (not (equal? v1 'undefinedVar)))) (M_lookup-cps statement state return))
+      ((and (not (list? statement))(M_lookup-cps statement state (lambda (v1) (equal? v1 'undefinedVar)))) (error 'undefined "Variable not declared"))
       ((isExpression? (expressionOperand statement)) (m_value_int-cps statement state return))
       ((isBooleanExpression? (booleanOperand statement)) (m_value_boolean-cps statement state (lambda (v) (return (booleanToText v)))))
       (else (error "invalid return statement"))
@@ -260,11 +263,17 @@
   (lambda (statement)
     (car statement)))
 
-;
+; Returns state of block
 (define M_state_block-cps
   (lambda (stmt-list state return break continueWhile breakWhile throw)
     (M_state_stmt_list-cps stmt-list (cons '() state) return break continueWhile breakWhile throw)))
 
+; Adds global variable
+(define M_add_global
+  (lambda (var value state)
+    (if (null? (cdr state))
+        (M_add var value state)
+        (cons (car state) (M_add_global var value (cdr state))))))
 
 ; Throw state
 (define M_throw
@@ -402,4 +411,4 @@
 
 (define interpret
   (lambda (filename)
-    (M_lookup-cps 'returnVal (call/cc (lambda (break) (M_state_stmt_list-cps (parser filename) '(()) (lambda (v) v) break (lambda (cw) cw) (lambda (bw) bw) (lambda (th) th)))) (lambda (v) v))))
+    (M_lookup-cps 'returnVal (call/cc (lambda (returnBreak) (M_state_stmt_list-cps (parser filename) '(()) (lambda (v) v) returnBreak (lambda (cw) cw) (lambda (bw) bw) (lambda (th) th)))) (lambda (v) v))))
