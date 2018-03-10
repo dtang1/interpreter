@@ -282,14 +282,19 @@
     (cadr statement)))
 
 ; Executes the try catch finally of a try statement
-(define M_try
-  (lambda (statement state return break continueWhile breakWhile throw)
+(define M_try 
+  (lambda (statement_list state return break continueWhile breakWhile throw)
     (call/cc
      (lambda (throw)
-       (M_state_stmt-cps statement state return break continueWhile breakWhile throw)))))
+       (M_state_stmt_list-cps statement_list state return break continueWhile breakWhile throw)))))
+
+(define M_catch
+  (lambda (stmtlist state return break continueWhile breakWhile throw)
+       (M_state_stmt_list-cps statement_list state return break continueWhile breakWhile throw)))
+
 
 ; Determines what state should be called next
-(define M_state_stmt-cps
+(define M_state_stmt-cps 
   (lambda (statement state return break continueWhile breakWhile throw)
     (cond
       ((null? statement) (return state))
@@ -301,8 +306,14 @@
       ((equal? 'begin (stateOperator statement))  (cdr (M_state_block-cps (cdr statement) state return break continueWhile breakWhile throw)));CPS needs to be addressed
       ((equal? 'continue (stateOperator statement)) (continueWhile state))
       ((equal? 'break (stateOperator statement)) (breakWhile state))
-      ((equal? 'throw (stateOperator statement)) (throw (M_throw statement state) state))
-      ((equal? 'try (stateOperator statement)) (M_try statement state return break continueWhile breakWhile))
+      ((equal? 'throw (stateOperator statement)) (throw (M_add 'thrown (M_throw statement state) state)))
+      ((equal? 'finally (stateOperator statement)) (M_state_stmt_list-cps (cadr statement) state return break continueWhile breakWhile throw))
+      ((equal? 'catch (stateOperator statement)) (if (equal? 'undefinedVar (M_lookup-cps 'thrown state (lambda (v)v)))
+                                                     (M_catch (caadr statement) (M_add (cadr state) (M_lookup-cps 'thrown state (lambda (v)v)) (M_remove-cps 'thrown state (lambda (v)v))))
+                                                     state))
+      ((equal? 'try (stateOperator statement)) (M_state_stmt_list-cps (cddr statement) (call/cc
+                                                (lambda (throw)
+                                                  (M_try (cadr statement) state return break continueWhile breakWhile throw))) return break continueWhile breakWhile throw))
       (else (equal? 'return (stateOperator statement)) (break (M_state_return-cps (valueOfReturn statement) state return))))))
 
 ; Gives the value or expression of the return statement
@@ -391,4 +402,4 @@
 
 (define interpret
   (lambda (filename)
-    (M_lookup-cps 'returnVal (call/cc (lambda (break) (M_state_stmt_list-cps (parser filename) '(()) (lambda (v) v) break (lambda (cw) cw) (lambda (bw) bw) (lambda (e s) (list e s))))) (lambda (v) v))))
+    (M_lookup-cps 'returnVal (call/cc (lambda (break) (M_state_stmt_list-cps (parser filename) '(()) (lambda (v) v) break (lambda (cw) cw) (lambda (bw) bw) (lambda (th) th)))) (lambda (v) v))))
