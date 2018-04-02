@@ -1,29 +1,31 @@
-
 ; If you are using racket instead of scheme, uncomment these two lines, comment the (load "simpleParser.scm") and uncomment the (require "simpleParser.scm")
 ; #lang racket
 ; (require "simpleParser.scm")
- (load "functionParser.scm")
+(load "functionParser.scm")
 
 ; An interpreter for the simple language using tail recursion for the M_state functions and does not handle side effects.
 
 ; The functions that start interpret-...  all return the current environment.  These are the M_state functions.
 ; The functions that start eval-...  all return a value.  These are the M_value and M_boolean functions.
 
-; The main function.  Calls parser to get the parse tree and interprets it with a new environment.  Sets default continuations for return, break, continue, throw, and "next statement"
 (define interpret
-  (lambda (filename)
+  (lambda (file)
+    (append '((()())) (interpret1 file))))
+
+; The main function.  Calls parser to get the parse tree and interprets it with a new environment.  Sets default continuations for return, break, continue, throw, and "next statement"
+(define interpret1
+  (lambda (file)
     (scheme->language
-     (interpret-statement-list (parser filename) (newenvironment) (lambda (v) v)
+     (interpret-statement-list (parser file) (newenvironment) (lambda (v) v)
                                (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
                                (lambda (v env) (myerror "Uncaught exception thrown")) (lambda (env) env)))))
 
-; The main function. Calls parser to get the parse tree and populates the global side of the environment with global variables and functions.
-(define interpret1
-  (lambda (filename)
-    (scheme->language
-     (populate-global-variables (parser filename) (newenvironment) (lambda(v) v)
-                                (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
-                                (lambda (v env) (myerror "Uncaught exception thrown")) (lambda (env) env)))))
+; interprets a list of statements.  The state/environment from each statement is used for the next ones.
+(define interpret-statement-list
+  (lambda (statement-list environment return break continue throw next)
+    (if (null? statement-list)
+        (next environment)
+        (interpret-statement (car statement-list) environment return break continue throw (lambda (env) (interpret-statement-list (cdr statement-list) env return break continue throw next))))))
 
 (define populate-global-variables
   (lambda (statement-list environment return break continue throw next)
@@ -33,38 +35,18 @@
       ((eq? (caar statement-list) 'var) (populate-global-variables (cdr statement-list) (addGlobalVar (interpret-statement (car statement-list) environment return break continue throw next) environment) return break continue throw next))
       ((eq? (caar statement-list) 'function) (populate-global-variables (cdr statement-list) (addGlobalFunc (car statement-list) environment) return break continue throw next))
       (else (myerror "error: poor global variable syntax:" (caar statement-list))))))
-; (((() ())) ((() ())))
-; ((var x 4) (var y (+ 6 x)) (function main () ((return (+ x y)))))
-
-(define addGlobalVar
-  (lambda (var environment)
-    (cons (car environment) (cons (insert (operand1 var) (operand2 var) (cadr environment)) '()))))
 
 (define addGlobalFunc
   (lambda (func environment)
     (cons (car environment) (cons (insert (operand1 func) (cons (operand2 func) (operand3 func)) (cadr environment)) '()))))
 
-    
-; Adds a new variable/value binding pair into the environment.  Gives an error if the variable already exists in this frame.
-(define insert
-  (lambda (var val environment)
-    (if (exists-in-list? var (variables (car environment)))
-        (myerror "error: variable is being re-declared:" var)
-        (cons (add-to-frame var val (car environment)) (cdr environment)))))
-    
-
-; interprets a list of statements.  The state/environment from each statement is used for the next ones.
-(define interpret-statement-list
-  (lambda (statement-list environment return break continue throw next)
-    (if (null? statement-list)
-        (next environment)
-        (interpret-statement (car statement-list) environment return break continue throw (lambda (env) (interpret-statement-list (cdr statement-list) env return break continue throw next))))))
 
 ; interpret a statement in the environment with continuations for return, break, continue, throw, and "next statement"
 (define interpret-statement
   (lambda (statement environment return break continue throw next)
     (cond
       ((eq? 'return (statement-type statement)) (interpret-return statement environment return))
+      ((eq? 'function (statement-type statement)) (interpret-function statement environment))
       ((eq? 'var (statement-type statement)) (interpret-declare statement environment next))
       ((eq? '= (statement-type statement)) (interpret-assign statement environment next))
       ((eq? 'if (statement-type statement)) (interpret-if statement environment return break continue throw next))
@@ -80,6 +62,10 @@
 (define interpret-return
   (lambda (statement environment return)
     (return (eval-expression (get-expr statement) environment))))
+
+(define interpret-function
+  (lambda (statement environment)
+    (insert (cadr statement) (cddr statement) environment))) 
 
 ; Adds a new variable binding to the environment.  There may be an assignment with the variable
 (define interpret-declare
@@ -260,35 +246,28 @@
 ; Environment/State Functions
 ;------------------------
 
-; abstraction
-
-; Help to access the different areas of the environment
-(define local car) ; local variables stored on stack
-(define global cdr)   ; global variables stored in heap
-(define remainingLocal cdar)          ; all but the highest local variabls
-
 ; create a new empty environment
 (define newenvironment
   (lambda ()
-    (list '((() ())) '((() ())))))
+    (list (newframe))))
 
 ; create an empty frame: a frame is two lists, the first are the variables and the second is the "store" of values
 (define newframe
   (lambda ()
-    '((() ()))))
+    '(() ())))
 
 ; add a frame onto the top of the environment
 (define push-frame
   (lambda (environment)
-    (cons (append (newframe) (local environment)) (global environment))))
+    (cons (newframe) environment)))
 
 ; remove a frame from the environment
 (define pop-frame
   (lambda (environment)
-    (cons (remainingLocal environment) (global environment))))
+    (cdr environment)))
 
 ; some abstractions
-(define topframe caar)
+(define topframe car)
 (define remainingframes cdr)
 
 ; does a variable exist in the environment?
@@ -426,5 +405,4 @@
                             str
                             (makestr (string-append str (string-append " " (symbol->string (car vals)))) (cdr vals))))))
       (error-break (display (string-append str (makestr "" vals)))))))
-
 
