@@ -28,7 +28,7 @@
 (define populate-global-variables
   (lambda (statement-list environment return break continue throw next)
     (cond
-      ((null? statement-list) (next statement-list))
+      ((null? statement-list) environment)
       ((eq? (caar statement-list) 'var) (populate-global-variables (cdr statement-list) (addGlobalVar (car statement-list) environment) return break continue throw next))
       ((eq? (caar statement-list) 'function) (populate-global-variables (cdr statement-list) (addGlobalFunc (car statement-list) environment) return break continue throw next))
       (else (myerror "error: poor global variable syntax:" (caar statement-list))))))
@@ -287,7 +287,7 @@
     (cons (remainingLocal environment) (global environment))))
 
 ; some abstractions
-(define topframe car)
+(define topframe caar)
 (define remainingframes cdr)
 
 ; does a variable exist in the environment?
