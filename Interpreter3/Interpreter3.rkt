@@ -19,6 +19,14 @@
   (lambda (file)
     (cadr (lookup 'main (makeEnv file)))))
 
+(define getFunc
+  (lambda (var environment)
+    (cadr (lookup var environment))))
+
+(define getFuncVars
+  (lambda (var environment)
+    (car (lookup var environment))))
+
 ; Creates the environment with all global variables
 (define makeEnv
   (lambda (file)
@@ -59,6 +67,7 @@
     (cond
       ((eq? 'return (statement-type statement)) (interpret-return statement environment return))
       ((eq? 'function (statement-type statement)) (interpret-function statement environment next))
+      ((eq? 'funcall (statement-type statement)) (interpret-funcall statement environment next))
       ((eq? 'var (statement-type statement)) (interpret-declare statement environment next))
       ((eq? '= (statement-type statement)) (interpret-assign statement environment next))
       ((eq? 'if (statement-type statement)) (interpret-if statement environment return break continue throw next))
@@ -78,6 +87,19 @@
 (define interpret-function
   (lambda (statement environment next)
     (next (insert (cadr statement) (cddr statement) environment)))) 
+
+(define interpret-funcall
+  (lambda (statement environment next)
+    (next (interpret-statement-list (getFunc (cadr statement) environment) (insert-function-var (getFuncVars (cadr statement) environment) (cddr statement) (push-frame environment)) (lambda (v) v)
+                              (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
+                              (lambda (v env) (myerror "Uncaught exception thrown")) (lambda (env) env)))))
+
+(define insert-function-var
+  (lambda (vars vals environment)
+    (if (null? vars)
+        environment
+        (insert-function-var (cdr vars) (cdr vals)(insert (car vars) (car vals) environment)))))
+    
 
 ; Adds a new variable binding to the environment.  There may be an assignment with the variable
 (define interpret-declare
@@ -204,6 +226,7 @@
       ((eq? '>= (operator expr)) (>= op1value (eval-expression (operand2 expr) environment)))
       ((eq? '|| (operator expr)) (or op1value (eval-expression (operand2 expr) environment)))
       ((eq? '&& (operator expr)) (and op1value (eval-expression (operand2 expr) environment)))
+      ((eq? 'funcall (operator expr)) (interpret-funcall expr environment (lambda (v)v)))
       (else (myerror "Unknown operator:" (operator expr))))))
 
 ; Determines if two values are equal.  We need a special test because there are both boolean and integer types.
@@ -271,7 +294,8 @@
 ; add a frame onto the top of the environment
 (define push-frame
   (lambda (environment)
-    (cons (newframe) environment)))
+    (append '((()())) environment)))
+    ;(cons (newframe) environment)))
 
 ; remove a frame from the environment
 (define pop-frame
@@ -345,7 +369,7 @@
 (define insert
   (lambda (var val environment)
     (if (exists-in-list? var (variables (car environment)))
-        (myerror "error: variable is being re-declared:" var)
+        (myerror "error: variable is being re-declared:" (list var val))
         (cons (add-to-frame var val (car environment)) (cdr environment)))))
 
 ; Changes the binding of a variable to a new value in the environment.  Gives an error if the variable does not exist.
