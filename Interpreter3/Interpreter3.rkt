@@ -98,7 +98,7 @@
   (lambda (vars vals environment)
     (if (null? vars)
         environment
-        (insert-function-var (cdr vars) (cdr vals)(insert (car vars) (car vals) environment)))))
+        (insert-function-var (cdr vars) (cdr vals)(insert (car vars) (eval-expression (car vals) environment) environment)))))
     
 
 ; Adds a new variable binding to the environment.  There may be an assignment with the variable
