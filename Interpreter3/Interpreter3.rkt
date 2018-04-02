@@ -58,7 +58,7 @@
   (lambda (statement environment return break continue throw next)
     (cond
       ((eq? 'return (statement-type statement)) (interpret-return statement environment return))
-      ((eq? 'function (statement-type statement)) (interpret-function statement environment))
+      ((eq? 'function (statement-type statement)) (interpret-function statement environment next))
       ((eq? 'var (statement-type statement)) (interpret-declare statement environment next))
       ((eq? '= (statement-type statement)) (interpret-assign statement environment next))
       ((eq? 'if (statement-type statement)) (interpret-if statement environment return break continue throw next))
@@ -76,8 +76,8 @@
     (return (eval-expression (get-expr statement) environment))))
 
 (define interpret-function
-  (lambda (statement environment)
-    (insert (cadr statement) (cddr statement) environment))) 
+  (lambda (statement environment next)
+    (next (insert (cadr statement) (cddr statement) environment)))) 
 
 ; Adds a new variable binding to the environment.  There may be an assignment with the variable
 (define interpret-declare
