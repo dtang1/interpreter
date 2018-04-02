@@ -10,6 +10,18 @@
 
 (define interpret
   (lambda (file)
+    (interpret-statement-list (getMain file) (makeEnv file) (lambda (v) v)
+                              (lambda (env) (myerror "Break used outside of loop")) (lambda (env) (myerror "Continue used outside of loop"))
+                              (lambda (v env) (myerror "Uncaught exception thrown")) (lambda (env) env))))
+
+; Finds the main method body
+(define getMain
+  (lambda (file)
+    (cadr (lookup 'main (makeEnv file)))))
+
+; Creates the environment with all global variables
+(define makeEnv
+  (lambda (file)
     (append '((()())) (interpret1 file))))
 
 ; The main function.  Calls parser to get the parse tree and interprets it with a new environment.  Sets default continuations for return, break, continue, throw, and "next statement"
@@ -370,7 +382,7 @@
 ; Returns the list of variables from a frame
 (define variables
   (lambda (frame)
-    (caar frame)))
+    (car frame)))
 
 ; Returns the store from a frame
 (define store
