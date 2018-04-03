@@ -343,6 +343,13 @@
       ((exists-in-list? var (variables (topframe environment))) (lookup-in-frame var (topframe environment)))
       (else (lookup-in-env var (cdr environment))))))
 
+; Returns the global layer of the environment
+(define getGlobals
+  (lambda (environment)
+    (cond
+      ((null? (cdr environment)) environment)
+    (else (getGlobals (cdr environment))))))
+
 ; Return the value bound to a variable in the frame
 (define lookup-in-frame
   (lambda (var frame)
