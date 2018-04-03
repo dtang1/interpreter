@@ -96,9 +96,10 @@
 
 (define insert-function-var
   (lambda (vars vals environment)
-    (if (null? vars)
-        environment
-        (insert-function-var (cdr vars) (cdr vals)(insert (car vars) (eval-expression (car vals) environment) environment)))))
+    (cond
+      ((and (null? vars) (null? vals)) environment)
+      ((or (null? vars) (null? vals)) (myerror "Mismatched parameters and arguments"))
+      (else(insert-function-var (cdr vars) (cdr vals)(insert (car vars) (eval-expression (car vals) environment) environment))))))
     
 
 ; Adds a new variable binding to the environment.  There may be an assignment with the variable
@@ -341,6 +342,7 @@
     (cond
       ((null? environment) (myerror "error: undefined variable" var))
       ((exists-in-list? var (variables (topframe environment))) (lookup-in-frame var (topframe environment)))
+      ;((null? (cdr environment)) (myerror "error: undefined variable" var))
       (else (lookup-in-env var (cdr environment))))))
 
 ; Returns the global layer of the environment
